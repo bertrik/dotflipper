@@ -1,0 +1,13 @@
+G04 Gerber job file.*
+%TF.FileFunction,JobInfo*%
+%TF.GenerationSoftware,Autodesk,EAGLE,9.1.1*%
+%TF.CreationDate,2018-07-28T22:25:57Z*%
+%TF.Part,Single*%
+%MOMM*%
+%TJ.B_Owner,Sebastian Oort <s.oort@rocmondriaan.nl>*%
+%TJ.B_ID,untitled*%
+%TJ.B_LayerNum,2*%
+%TJ.B_Thickness,1.570000*%
+%TJ.B_Size_X,224.770000*%
+%TJ.B_Size_Y,107.620000*%
+M02*
