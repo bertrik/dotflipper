@@ -68,14 +68,17 @@ void flipdot(int x, int y, bool color) {
   byte rowdriveradress    = 0x60 + ((panelnumber * 2) + ((y % panelheight) / 8));
 
   // Now we determine what column and row we're on (%8) and determine which register matches
+  // If color is HIGH then we need the column to be at positive rail and row at gnd-rail.
+  // If color is LOW then we need the row to be at positive rail and column at gnd-rail.
+  // This is done in hardware by using the first 8 outputs of the chip for the gnd-rail and the second 8 for the positive rail.
   byte columnregisteroffset = 0x07;            // register for LED0_High register
   byte column = x % 8;
-  if (color == 0) columnregisteroffset = 0x27; // register for LED8_High register
+  if (! color) columnregisteroffset = 0x27; // register for LED8_High register
   byte columnregister = 4 * column + columnregisteroffset;
 
   byte rowregisteroffset = 0x07;
   byte row = x % 8;
-  if (color == 1) rowregisteroffset = 0x27;
+  if (color) rowregisteroffset = 0x27;
   byte rowregister =  4 * row + rowregisteroffset;
 
   // Now we will flip some bits!
