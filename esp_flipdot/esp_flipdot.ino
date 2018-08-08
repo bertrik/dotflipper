@@ -1,7 +1,7 @@
 // Flipdot
 // Sebastius 2018
 // CC BY-SA 4.0
-// 
+//
 //
 // PCA9685 cheatsheet
 //
@@ -26,20 +26,22 @@
 // Column high + row low = BLACK dot
 // Column low + row high = YELLOW dot
 
-#define DEBUG
+//#define DEBUG
 
 #include <Wire.h>
 
-#define width 2         // in number of panels
-#define height 4        // in number of panels
+#define width 1         // in number of panels
+#define height 1        // in number of panels
 #define panelwidth  32
 #define panelheight 16
 #define pulsetime 4     // How long should the pulse last? 
-// I had it at 1ms and it was working on a Nano... Maybe due to bugs so slow. Will try next time.
 #define offtime 1       // Delay to allow the i2c expanders to power down
 
+#if width==0 || height==0 || width*height > 8
+#error "Please check width and height: width and height should both be > 0 and width*height should not be >8!"
+#endif
 
-void flipdot(int x, int y, bool color) {
+void flipdot(uint16_t x, uint16_t y, bool color) {
   // This routine seems a bit convoluted, calculating the adresses for each pixel when you could make a map beforehand.
   // However the math takes up < 1ms for 8 panels in total (64x64 sets of calculations) on an 80mhz ESP8266.
   // The actual flipping of the dots is what is slowing us down, at the moment at 5ms per dot.
@@ -50,6 +52,7 @@ void flipdot(int x, int y, bool color) {
   // - flipping a dot on all 8 panels
   // - partial refresh (so not changing what doesnt need changing)
   // Both require an actual framebuffer, so thats next for this project.
+  //
 
   // Input sanitation. Out of range? We wrap around.
   // Sanitation is needed because this panel is headed for hacker-events...
@@ -71,18 +74,20 @@ void flipdot(int x, int y, bool color) {
   // If color is HIGH then we need the column to be at positive rail and row at gnd-rail.
   // If color is LOW then we need the row to be at positive rail and column at gnd-rail.
   // This is done in hardware by using the first 8 outputs of the chip for the gnd-rail and the second 8 for the positive rail.
-  byte columnregisteroffset = 0x07;            // register for LED0_High register
+
   byte column = x % 8;
-  if (! color) columnregisteroffset = 0x27; // register for LED8_High register
+  byte columnregisteroffset = (color) ? 0x07 : 0x27;
   byte columnregister = 4 * column + columnregisteroffset;
 
-  byte rowregisteroffset = 0x07;
-  byte row = x % 8;
-  if (color) rowregisteroffset = 0x27;
+  byte row = y % 8;
+  byte rowregisteroffset = (color) ? 0x27 : 0x07;
   byte rowregister =  4 * row + rowregisteroffset;
+
+  everythingoff(); // just to be safe
 
   // Now we will flip some bits!
   // Powerup!
+
   i2cwrite(rowdriveradress,    rowregister          , 0x10);
   i2cwrite(rowdriveradress,    rowregister    + 0x02, 0x00);
 
@@ -98,15 +103,18 @@ void flipdot(int x, int y, bool color) {
   i2cwrite(columndriveradress, columnregister       , 0x00);
   i2cwrite(columndriveradress, columnregister + 0x02, 0x10);
 
+  everythingoff(); // just to be more safe
+
   delay(offtime);
 }
 
 void i2cwrite(byte adress, byte reg, byte content) {
-
 #ifdef DEBUG
-  Serial.print("I2C: "); Serial.print(adress, HEX); Serial.print(" "); Serial.print(reg, HEX); Serial.print(" "); Serial.println(content, HEX);
+  Serial.print("I2C: ");
+  Serial.print((adress < 0x10) ? "0" : "" + String(adress, HEX) + " ");
+  Serial.print((reg < 0x10) ? "0" : "" + String(reg, HEX) + " ");
+  Serial.println((content < 0x10) ? "0" : "" + String(content, HEX));
 #endif
-
   Wire.beginTransmission(adress);
   Wire.write(reg);
   Wire.write(content);
@@ -118,28 +126,107 @@ void resetPCA9685() {
   delay(10);
   i2cwrite(0x70, 0x00, 0x00); // Set the Mode0 register to normal operation
   delay(5);
+  everythingoff(); // just making sure
+  delay(20);
+}
+
+void everythingoff() {
+  // Write to the all-call adress (all PCA9865's on bus) to the ALL_LED registers to switch them all off.
+  i2cwrite(0x70, 0xFA, 0x00);
+  i2cwrite(0x70, 0xFB, 0x00);
+  i2cwrite(0x70, 0xFC, 0x00);
+  i2cwrite(0x70, 0xFD, 0x10);
+}
+
+void i2cscanner() {
+  byte error, address;
+  int nDevices;
+
+  Serial.println("Scanning I2C bus...");
+
+  nDevices = 0;
+  for (address = 1; address < 127; address++ )
+  {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      Serial.println(((address < 16) ? "0" : "") + String(address, HEX));
+      nDevices++;
+    }
+    else if (error == 4)
+    {
+      Serial.print("Unknown error at address 0x");
+      Serial.println(((address < 16) ? "0" : "") + String(address, HEX));
+    }
+  }
+  Serial.println("I2C scan done\n");
+  if (nDevices == 0) {
+    Serial.println("No I2C devices found, infinite loop now so you can check everything.");
+    infiniteloop();
+  } else {
+    Serial.println(String(nDevices, DEC) + " I2C device" + ((nDevices > 1) ? "s" : "") + " found");
+  }
+}
+
+void infiniteloop() {
+  while (1) {
+    yield();
+  }
 }
 
 void setup() {
-  Serial.begin(115200);
-  Serial.println(); Serial.println();
-  Serial.println("Flipdot");
 
-  Serial.println(ESP.getFlashChipRealSize());
-
-  //Wire.begin(); // Nano
-  Wire.begin(D1, D2); // ESP8266, SDA, SCL
-  //Wire.setClock(1000000); // ESP8266, weet nog niet of bekabeling het aan kan en of het zin heeft...
+#if defined(__AVR__)
+  Wire.begin(); // Nano
   Wire.setClock(400000); // Nano + ESP8266
+#elif defined(ESP8266)
+  Wire.begin(D2, D1); // ESP8266, SDA, SCL
+  Wire.setClock(1000000); // ESP8266
+#endif
+
+  Serial.begin(115200);
+  Serial.println();
+
+  everythingoff();
+  Serial.println();
+  Serial.println("Flipdot software");
+
+#ifdef DEBUG
+  i2cscanner();
+  for (uint8_t t = 10; t > 0; t--) {
+    Serial.print("Waiting ");
+    Serial.print(t);
+    Serial.println(" seconds to continue");
+    delay(1000);
+  }
+  Serial.print("Resuming regular code");
+#endif
+
+  Serial.println("Flipdot getting ready to go!");
 
   resetPCA9685();
-  flipdot(0, 0, 1);
+
 }
-
-
 
 void loop() {
   yield();
+  for (uint16_t x = 0; x < (width * panelwidth); x++) {
+    for (uint16_t y = 0; y < (height * panelheight); y++) {
+      flipdot(x, y, 1);
+    }
+  }
+
+  for (uint16_t x = 0; x < (width * panelwidth); x++) {
+    for (uint16_t y = 0; y < (height * panelheight); y++) {
+      flipdot(x, y, 0);
+    }
+  }
 }
 
 
