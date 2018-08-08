@@ -6,7 +6,7 @@
 // PCA9685 cheatsheet
 //
 // Specific for my flipdot controller:
-// Adressen   0x40 - 0x5F columndrivers (4 on a board, for 32 colums)
+// Addresses  0x40 - 0x5F columndrivers (4 on a board, for 32 colums)
 //            0x60 - 0x6F rowdriver (2 on a bord, for 16 rows)
 //            0x70        all call
 //
@@ -42,7 +42,7 @@
 #endif
 
 void flipdot(uint16_t x, uint16_t y, bool color) {
-  // This routine seems a bit convoluted, calculating the adresses for each pixel when you could make a map beforehand.
+  // This routine seems a bit convoluted, calculating the addresses for each pixel when you could make a map beforehand.
   // However the math takes up < 1ms for 8 panels in total (64x64 sets of calculations) on an 80mhz ESP8266.
   // The actual flipping of the dots is what is slowing us down, at the moment at 5ms per dot.
   // So 64x64 would take approximately 22 seconds for a full flip.
@@ -56,7 +56,7 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
 
   // Input sanitation. Out of range? We wrap around.
   // Sanitation is needed because this panel is headed for hacker-events...
-  // Stuff will break (actual short circuits, blown chips, coils and diodes) when adressing is wrong.
+  // Stuff will break (actual short circuits, blown chips, coils and diodes) when addressing is wrong.
   x %= width * panelwidth;
   y %= height * panelheight;
 
@@ -67,8 +67,8 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   byte panelnumber = xpanelcoordinate + (ypanelcoordinate * width);
 
   // Determine which drivers we want to speak to
-  byte columndriveradress = 0x40 + ((panelnumber * 4) + ((x % panelwidth)  / 8));
-  byte rowdriveradress    = 0x60 + ((panelnumber * 2) + ((y % panelheight) / 8));
+  byte columndriveraddress = 0x40 + ((panelnumber * 4) + ((x % panelwidth)  / 8));
+  byte rowdriveraddress    = 0x60 + ((panelnumber * 2) + ((y % panelheight) / 8));
 
   // Now we determine what column and row we're on (%8) and determine which register matches
   // If color is HIGH then we need the column to be at positive rail and row at gnd-rail.
@@ -88,34 +88,34 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   // Now we will flip some bits!
   // Powerup!
 
-  i2cwrite(rowdriveradress,    rowregister          , 0x10);
-  i2cwrite(rowdriveradress,    rowregister    + 0x02, 0x00);
+  i2cwrite(rowdriveraddress,    rowregister          , 0x10);
+  i2cwrite(rowdriveraddress,    rowregister    + 0x02, 0x00);
 
-  i2cwrite(columndriveradress, columnregister       , 0x10);
-  i2cwrite(columndriveradress, columnregister + 0x02, 0x00);
+  i2cwrite(columndriveraddress, columnregister       , 0x10);
+  i2cwrite(columndriveraddress, columnregister + 0x02, 0x00);
 
   delay (pulsetime);
 
   // And powerdown!
-  i2cwrite(rowdriveradress,    rowregister          , 0x00);
-  i2cwrite(rowdriveradress,    rowregister    + 0x02, 0x10);
+  i2cwrite(rowdriveraddress,    rowregister          , 0x00);
+  i2cwrite(rowdriveraddress,    rowregister    + 0x02, 0x10);
 
-  i2cwrite(columndriveradress, columnregister       , 0x00);
-  i2cwrite(columndriveradress, columnregister + 0x02, 0x10);
+  i2cwrite(columndriveraddress, columnregister       , 0x00);
+  i2cwrite(columndriveraddress, columnregister + 0x02, 0x10);
 
   everythingoff(); // just to be more safe
 
   delay(offtime);
 }
 
-void i2cwrite(byte adress, byte reg, byte content) {
+void i2cwrite(byte address, byte reg, byte content) {
 #ifdef DEBUG
   Serial.print("I2C: ");
-  Serial.print((adress < 0x10) ? "0" : "" + String(adress, HEX) + " ");
+  Serial.print((address < 0x10) ? "0" : "" + String(address, HEX) + " ");
   Serial.print((reg < 0x10) ? "0" : "" + String(reg, HEX) + " ");
   Serial.println((content < 0x10) ? "0" : "" + String(content, HEX));
 #endif
-  Wire.beginTransmission(adress);
+  Wire.beginTransmission(address);
   Wire.write(reg);
   Wire.write(content);
   Wire.endTransmission();
@@ -131,7 +131,7 @@ void resetPCA9685() {
 }
 
 void everythingoff() {
-  // Write to the all-call adress (all PCA9865's on bus) to the ALL_LED registers to switch them all off.
+  // Write to the all-call address (all PCA9865's on bus) to the ALL_LED registers to switch them all off.
   i2cwrite(0x70, 0xFA, 0x00);
   i2cwrite(0x70, 0xFB, 0x00);
   i2cwrite(0x70, 0xFC, 0x00);
