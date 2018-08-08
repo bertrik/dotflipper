@@ -34,6 +34,8 @@
 #define height 1        // in number of panels
 #define panelwidth  32  // in dots
 #define panelheight 16  // in dots
+#define COLS width*panelwidth
+#define ROWS height*panelheight
 #define pulsetime 4     // in ms, How long should the pulse last? 
 #define offtime 1       // in ms, Delay to to power down
 
@@ -192,6 +194,96 @@ void infiniteloop() {
   }
 }
 
+boolean current_state[COLS][ROWS]; // stores the current state of the cells
+
+void GoLnext() {
+  int x;
+  int y;
+
+  boolean value;
+  boolean next[COLS][ROWS]; // stores the next state of the cells
+
+  for (int r = 0; r < ROWS; r++) { // for each row
+    for (int c = 0; c < COLS; c++) { // and each column
+
+      // count how many live neighbors this cell has
+      int liveNeighbors = 0;
+      for (int i = -1; i < 2; i++) {
+        y = r + i;
+        if (y == -1) {
+          y = ROWS - 1;
+        } else if (y == ROWS) {
+          y = 0;
+        }
+        for (int j = -1; j < 2; j++) {
+          if (i != 0 || j != 0) {
+            x = c + j;
+            if (x == -1) {
+              x = COLS - 1;
+            } else if (x == COLS) {
+              x = 0;
+            }
+
+            if (current_state[x][y]) {
+              liveNeighbors++;
+            }
+          }
+        }
+      }
+      //Serial.print(liveNeighbors);
+
+      // apply the rules
+      if (current_state[c][r] && liveNeighbors >= 2 && liveNeighbors <= 3) { // live cells with 2 or 3 neighbors remain alive
+        value = true;
+      } else if (!current_state[c][r] && liveNeighbors == 3) { // dead cells with 3 neighbors become alive
+        value = true;
+      } else {
+        value = false;
+      }
+
+      next[c][r] = value;
+
+      if (current_state[c][r] != next[c][r]) {
+        flipdot(c, r, value);
+      }
+
+    }
+  }
+
+  // discard the old state and keep the new one
+  memcpy(current_state, next, sizeof next);
+}
+
+void GoLrandomize() {
+  int slider = 75;
+  int num;
+  boolean value;
+
+  randomSeed(millis());
+
+  current_state[1][0] = 1;
+  current_state[2][1] = 1;
+  current_state[0][2] = 1;
+  current_state[1][2] = 1;
+  current_state[2][2] = 1;
+
+  for (int r = 0; r < ROWS; r++) {
+    for (int c = 0; c < COLS; c++) {
+      num = random(1, 100);
+
+      value = num >= slider;
+      if (value) {
+        current_state[c][r] = value;
+        flipdot(c, r, current_state[c][r]);
+      }
+    }
+  }
+}
+
+
+
+
+
 void setup() {
 
 #if defined(__AVR__)
@@ -199,7 +291,7 @@ void setup() {
   Wire.setClock(400000); // Nano + ESP8266
 #elif defined(ESP8266)
   Wire.begin(D2, D1); // ESP8266, SDA, SCL
-  Wire.setClock(1000000); // ESP8266
+  Wire.setClock(400000); // ESP8266
 #endif
 
   Serial.begin(115200);
@@ -234,10 +326,15 @@ void loop() {
     }
   }
 
-  for (uint16_t x = 0; x < (width * panelwidth); x++) {
-    for (uint16_t y = 0; y < (height * panelheight); y++) {
+  for (uint16_t y = 0; y < (height * panelheight); y++) {
+    for (uint16_t x = 0; x < (width * panelwidth); x++) {
       flipdot(x, y, 0);
     }
+  }
+
+  GoLrandomize();
+  for (uint8_t i = 0; i < 100; i++) {
+    GoLnext();
   }
 }
 
