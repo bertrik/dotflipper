@@ -114,15 +114,17 @@ void i2cwrite(byte address, byte reg, byte content) {
   if (address < 0x10) {
     Serial.print("0");
   }
-  Serial.print(String(address, HEX) + " ");
+  Serial.print(address, HEX);
+  Serial.print(" ");
   if (reg < 0x10) {
     Serial.print("0");
   }
-  Serial.print(String(reg, HEX) + " ");
+  Serial.print(reg, HEX);
+  Serial.print(" ");
   if (content < 0x10) {
     Serial.print("0");
   }
-  Serial.println(String(content, HEX));
+  Serial.println(content, HEX);
 #endif
   Wire.beginTransmission(address);
   Wire.write(reg);
@@ -163,11 +165,13 @@ void i2cscanner() {
 
     if (error == 0) {
       Serial.print("I2C device found at address 0x");
-      Serial.println(((address < 16) ? "0" : "") + String(address, HEX));
+      Serial.print((address < 0x10) ? "0" : "");
+      Serial.println(address, HEX);
       nDevices++;
     } else if (error == 4) {
       Serial.print("Unknown error at address 0x");
-      Serial.println(((address < 16) ? "0" : "") + String(address, HEX));
+      Serial.print((address < 0x10) ? "0" : "");
+      Serial.println(address, HEX);
     }
   }
   Serial.println("I2C scan done\n");
@@ -175,13 +179,16 @@ void i2cscanner() {
     Serial.println("No I2C devices found, infinite loop now so you can check everything.");
     infiniteloop();
   } else {
-    Serial.println(String(nDevices, DEC) + " I2C device" + ((nDevices > 1) ? "s" : "") + " found");
+    Serial.print(nDevices, DEC);
+    Serial.print(" I2C device");
+    Serial.print((nDevices > 1) ? "s" : "");
+    Serial.println(" found");
   }
 }
 
 void infiniteloop() {
   while (1) {
-    yield();
+    yield(); // so the ESP doesnt crash
   }
 }
 
