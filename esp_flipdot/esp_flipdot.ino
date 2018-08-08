@@ -111,12 +111,18 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
 void i2cwrite(byte address, byte reg, byte content) {
 #ifdef DEBUG
   Serial.print("I2C: ");
-  if (address < 0x10) Serial.print("0");
-  Serial.print((address, HEX) + " ");
-  if (reg < 0x10) Serial.print("0");
-  Serial.print((reg, HEX) + " ");
-  if (content < 0x10) Serial.print("0");
-  Serial.println(content, HEX);
+  if (address < 0x10) {
+    Serial.print("0");
+  }
+  Serial.print(String(address, HEX) + " ");
+  if (reg < 0x10) {
+    Serial.print("0");
+  }
+  Serial.print(String(reg, HEX) + " ");
+  if (content < 0x10) {
+    Serial.print("0");
+  }
+  Serial.println(String(content, HEX));
 #endif
   Wire.beginTransmission(address);
   Wire.write(reg);
