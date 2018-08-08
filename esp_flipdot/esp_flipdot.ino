@@ -320,17 +320,76 @@ void setup() {
 
 void loop() {
   yield();
-  for (uint16_t x = 0; x < (width * panelwidth); x++) {
-    for (uint16_t y = 0; y < (height * panelheight); y++) {
+  for (uint16_t x = 0; x < COLS; x++) {
+    for (uint16_t y = 0; y < ROWS; y++) {
       flipdot(x, y, 1);
     }
   }
 
-  for (uint16_t y = 0; y < (height * panelheight); y++) {
-    for (uint16_t x = 0; x < (width * panelwidth); x++) {
+  delay(1000);
+
+  for (uint16_t y = 0; y < ROWS; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
       flipdot(x, y, 0);
     }
   }
+
+  delay(1000);
+  
+  for (uint16_t y = 0; y < ROWS / 2; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, 2 * y, 1);
+    }
+    for (uint16_t x = COLS - 1; x > 0; x--) {
+      flipdot(x, 2 * y + 1, 1);
+    }
+  }
+  
+  delay(1000);
+
+  for (uint16_t y = 0; y < ROWS / 2; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, 2 * y, 0);
+      flipdot(COLS - x, 2 * y + 1, 0);
+    }
+  }
+  
+  delay(1000);
+
+  for (uint16_t y = 0; y < ROWS / 2; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, y, 1);
+      flipdot(COLS - x, ROWS - y, 1);
+    }
+  }
+  
+  delay(1000);
+
+  for (uint16_t x = 0; x < COLS / 2; x++) {
+    for (uint16_t y = 0; y < ROWS / 2; y++) {
+      flipdot(x, y, 0);
+      flipdot(COLS - x, ROWS - y, 0);
+      flipdot(COLS - x, y, 0);
+      flipdot(x, ROWS - y, 0);
+    }
+  }
+  
+  delay(1000);
+
+  for (uint16_t x = 0; x < COLS; x++) {
+    for (uint16_t y = 0; y < ROWS; y++) {
+      flipdot(x, y, 1);
+    }
+  }
+  
+  delay(1000);
+  for (uint16_t y = 0; y < ROWS; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, y, 0);
+    }
+  }
+  
+  delay(1000);
 
   GoLrandomize();
   for (uint8_t i = 0; i < 100; i++) {
