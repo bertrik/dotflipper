@@ -32,10 +32,10 @@
 
 #define width 1         // in number of panels
 #define height 1        // in number of panels
-#define panelwidth  32
-#define panelheight 16
-#define pulsetime 4     // How long should the pulse last? 
-#define offtime 1       // Delay to allow the i2c expanders to power down
+#define panelwidth  32  // in dots
+#define panelheight 16  // in dots
+#define pulsetime 4     // in ms, How long should the pulse last? 
+#define offtime 1       // in ms, Delay to to power down
 
 #if width==0 || height==0 || width*height > 8
 #error "Please check width and height: width and height should both be > 0 and width*height should not be >8!"
@@ -111,9 +111,12 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
 void i2cwrite(byte address, byte reg, byte content) {
 #ifdef DEBUG
   Serial.print("I2C: ");
-  Serial.print((address < 0x10) ? "0" : "" + String(address, HEX) + " ");
-  Serial.print((reg < 0x10) ? "0" : "" + String(reg, HEX) + " ");
-  Serial.println((content < 0x10) ? "0" : "" + String(content, HEX));
+  if (address < 0x10) Serial.print("0");
+  Serial.print((address, HEX) + " ");
+  if (reg < 0x10) Serial.print("0");
+  Serial.print((reg, HEX) + " ");
+  if (content < 0x10) Serial.print("0");
+  Serial.println(content, HEX);
 #endif
   Wire.beginTransmission(address);
   Wire.write(reg);
@@ -145,22 +148,18 @@ void i2cscanner() {
   Serial.println("Scanning I2C bus...");
 
   nDevices = 0;
-  for (address = 1; address < 127; address++ )
-  {
+  for (address = 1; address < 127; address++ ) {
     // The i2c_scanner uses the return value of
     // the Write.endTransmisstion to see if
     // a device did acknowledge to the address.
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
 
-    if (error == 0)
-    {
+    if (error == 0) {
       Serial.print("I2C device found at address 0x");
       Serial.println(((address < 16) ? "0" : "") + String(address, HEX));
       nDevices++;
-    }
-    else if (error == 4)
-    {
+    } else if (error == 4) {
       Serial.print("Unknown error at address 0x");
       Serial.println(((address < 16) ? "0" : "") + String(address, HEX));
     }
