@@ -43,6 +43,9 @@
 #error "Please check width and height: width and height should both be > 0 and width*height should not be >8!"
 #endif
 
+boolean current_state[COLS][ROWS];
+boolean next[COLS][ROWS];
+
 void flipdot(uint16_t x, uint16_t y, bool color) {
   // This routine seems a bit convoluted, calculating the addresses for each pixel when you could make a map beforehand.
   // However the math takes up < 1ms for 8 panels in total (64x64 sets of calculations) on an 80mhz ESP8266.
@@ -85,7 +88,17 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   byte rowregisteroffset = (color) ? 0x27 : 0x07;
   byte rowregister =  4 * row + rowregisteroffset;
 
-  everythingoff(); // just to be safe
+  // Safety
+  // If you try to use multiple rows or columns on a panel you will get magic smoke,
+  // so we switch everything off on that panel for safety reasons:
+  // columns
+  for (uint8_t address = 0x40 + (panelnumber * 4); address < 0x44 + (panelnumber * 4); address++) {
+    everythingoff(address);
+  }
+  // rows
+  for (uint8_t address = 0x60 + (panelnumber * 2); address < 0x62 + (panelnumber * 2); address++) {
+    everythingoff(address);
+  }
 
   // Now we will flip some bits!
   // Powerup!
@@ -105,10 +118,9 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   i2cwrite(columndriveraddress, columnregister       , 0x00);
   i2cwrite(columndriveraddress, columnregister + 0x02, 0x10);
 
-  everythingoff(); // just to be more safe
-
   delay(offtime);
 }
+
 
 void i2cwrite(byte address, byte reg, byte content) {
 #ifdef DEBUG
@@ -139,16 +151,16 @@ void resetPCA9685() {
   delay(10);
   i2cwrite(0x70, 0x00, 0x00); // Set the Mode0 register to normal operation
   delay(5);
-  everythingoff(); // just making sure
+  everythingoff(0x70); // just making sure
   delay(20);
 }
 
-void everythingoff() {
-  // Write to the all-call address (all PCA9865's on bus) to the ALL_LED registers to switch them all off.
-  i2cwrite(0x70, 0xFA, 0x00);
-  i2cwrite(0x70, 0xFB, 0x00);
-  i2cwrite(0x70, 0xFC, 0x00);
-  i2cwrite(0x70, 0xFD, 0x10);
+void everythingoff(uint8_t address) {
+  // Write to the ALL_LED registers to switch them all off.
+  i2cwrite(address, 0xFA, 0x00);
+  i2cwrite(address, 0xFB, 0x00);
+  i2cwrite(address, 0xFC, 0x00);
+  i2cwrite(address, 0xFD, 0x10);
 }
 
 void i2cscanner() {
@@ -194,14 +206,12 @@ void infiniteloop() {
   }
 }
 
-boolean current_state[COLS][ROWS]; // stores the current state of the cells
 
 void GoLnext() {
   int x;
   int y;
 
   boolean value;
-  boolean next[COLS][ROWS]; // stores the next state of the cells
 
   for (int r = 0; r < ROWS; r++) { // for each row
     for (int c = 0; c < COLS; c++) { // and each column
@@ -281,7 +291,7 @@ void GoLrandomize() {
   boolean value;
 
   randomSeed(millis());
-  memset(current_state,0,sizeof(current_state));
+  memset(current_state, 0, sizeof(current_state));
 
   current_state[1][0] = 1;
   current_state[2][1] = 1;
@@ -332,7 +342,7 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
 
-  everythingoff();
+  everythingoff(0x70);
   Serial.println();
   Serial.println("Flipdot software");
 
@@ -354,8 +364,8 @@ void setup() {
 }
 
 void effectjes() {
-// Some simpel effects, just for demo/testing. Some are still buggy.
-  
+  // Some simpel effects, just for demo/testing. Some are still buggy.
+
   for (uint16_t x = 0; x < COLS; x++) {
     for (uint16_t y = 0; y < ROWS; y++) {
       flipdot(x, y, 1);
@@ -485,7 +495,7 @@ void loop() {
       flipdot(x, y, 0);
     }
   }
-  
+
   GoL();
   //effectjes();
   //delay(1000);
