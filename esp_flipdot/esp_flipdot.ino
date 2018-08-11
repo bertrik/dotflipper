@@ -31,7 +31,7 @@
 #include <Wire.h>
 
 #define width 1         // in number of panels
-#define height 1        // in number of panels
+#define height 2        // in number of panels
 #define panelwidth  32  // in dots
 #define panelheight 16  // in dots
 #define COLS width*panelwidth
@@ -210,14 +210,19 @@ void GoLnext() {
       int liveNeighbors = 0;
       for (int i = -1; i < 2; i++) {
         y = r + i;
+
+        // wrap y
         if (y == -1) {
           y = ROWS - 1;
         } else if (y == ROWS) {
           y = 0;
         }
+
         for (int j = -1; j < 2; j++) {
           if (i != 0 || j != 0) {
             x = c + j;
+
+            // wrap
             if (x == -1) {
               x = COLS - 1;
             } else if (x == COLS) {
@@ -243,29 +248,59 @@ void GoLnext() {
 
       next[c][r] = value;
 
-      if (current_state[c][r] != next[c][r]) {
-        flipdot(c, r, value);
-      }
+      //      if (current_state[c][r] != next[c][r]) {
+      //        flipdot(c, r, value);
+      //      }
 
     }
   }
 
+  for (uint16_t x = 0; x < (COLS / 2); x++) {
+    for (uint16_t y = 0; y < (ROWS / 2); y++) {
+      if (current_state[x][y] != next[x][y]) {
+        flipdot(x, y, next[x][y]);
+      }
+      if (current_state[COLS - 1 - x][ROWS - 1 - y] != next[COLS - 1 - x][ROWS - 1 - y]) {
+        flipdot(COLS - 1 - x, ROWS - 1 - y, next[COLS - 1 - x][ROWS - 1 - y]);
+      }
+      if (current_state[COLS - 1 - x][y] != next[COLS - 1 - x][y]) {
+        flipdot(COLS - 1 - x, y, next[COLS - 1 - x][y]);
+      }
+      if (current_state[x][ROWS - 1 - y] != next[x][ROWS - 1 - y]) {
+        flipdot(x, ROWS - 1 - y, next[x][ROWS - 1 - y]);
+      }
+    }
+  }
   // discard the old state and keep the new one
   memcpy(current_state, next, sizeof next);
 }
 
 void GoLrandomize() {
-  int slider = 75;
+  int slider = 90;
   int num;
   boolean value;
 
   randomSeed(millis());
+  memset(current_state,0,sizeof(current_state));
 
   current_state[1][0] = 1;
   current_state[2][1] = 1;
   current_state[0][2] = 1;
   current_state[1][2] = 1;
   current_state[2][2] = 1;
+
+  current_state[8][2] = 1;
+
+  current_state[14][2] = 1;
+  current_state[14][3] = 1;
+  current_state[15][2] = 1;
+  current_state[15][3] = 1;
+
+  current_state[20][2] = 1;
+  current_state[20][3] = 1;
+  current_state[20][4] = 1;
+
+  current_state[25][6] = 1;
 
   for (int r = 0; r < ROWS; r++) {
     for (int c = 0; c < COLS; c++) {
@@ -318,8 +353,9 @@ void setup() {
 
 }
 
-void loop() {
-  yield();
+void effectjes() {
+// Some simpel effects, just for demo/testing. Some are still buggy.
+  
   for (uint16_t x = 0; x < COLS; x++) {
     for (uint16_t y = 0; y < ROWS; y++) {
       flipdot(x, y, 1);
@@ -335,66 +371,126 @@ void loop() {
   }
 
   delay(1000);
-  
-  for (uint16_t y = 0; y < ROWS / 2; y++) {
+
+  for (uint16_t y = 0; y < (ROWS / 2); y++) {
     for (uint16_t x = 0; x < COLS; x++) {
       flipdot(x, 2 * y, 1);
     }
-    for (uint16_t x = COLS - 1; x > 0; x--) {
-      flipdot(x, 2 * y + 1, 1);
-    }
-  }
-  
-  delay(1000);
-
-  for (uint16_t y = 0; y < ROWS / 2; y++) {
     for (uint16_t x = 0; x < COLS; x++) {
-      flipdot(x, 2 * y, 0);
-      flipdot(COLS - x, 2 * y + 1, 0);
+      flipdot(COLS - 1 - x, (2 * y) + 1, 1);
     }
   }
-  
-  delay(1000);
 
-  for (uint16_t y = 0; y < ROWS / 2; y++) {
-    for (uint16_t x = 0; x < COLS; x++) {
-      flipdot(x, y, 1);
-      flipdot(COLS - x, ROWS - y, 1);
-    }
-  }
-  
-  delay(1000);
-
-  for (uint16_t x = 0; x < COLS / 2; x++) {
-    for (uint16_t y = 0; y < ROWS / 2; y++) {
-      flipdot(x, y, 0);
-      flipdot(COLS - x, ROWS - y, 0);
-      flipdot(COLS - x, y, 0);
-      flipdot(x, ROWS - y, 0);
-    }
-  }
-  
   delay(1000);
 
   for (uint16_t x = 0; x < COLS; x++) {
-    for (uint16_t y = 0; y < ROWS; y++) {
+    for (uint16_t y = 0; y < (ROWS / 2); y++) {
+      flipdot(x, 2 * y, 0);
+    }
+    for (uint16_t y = 0; y < (ROWS / 2); y++) {
+      flipdot(COLS - 1 - x, (2 * y) + 1, 0);
+    }
+  }
+
+  delay(1000);
+
+  for (uint16_t x = 0; x < COLS; x++) {
+    for (uint16_t y = 0; y < (ROWS / 2); y++) {
+
+      flipdot(x, 2 * y, 1);
+      flipdot(COLS - 1 - x, (2 * y) + 1, 1);
+    }
+  }
+
+  delay(1000);
+
+  for (uint16_t y = 0; y < (ROWS / 2); y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, 2 * y, 0);
+      flipdot(COLS - 1 - x, (2 * y) + 1, 0);
+    }
+  }
+
+  delay(1000);
+
+  for (uint16_t y = 0; y < (ROWS / 2); y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, y, 1);
+      flipdot(COLS - 1 - x, ROWS - 1 - y, 1);
+    }
+  }
+
+  delay(1000);
+
+  for (uint16_t x = 0; x < (COLS / 2); x++) {
+    for (uint16_t y = 0; y < (ROWS / 2); y++) {
+      flipdot(x, y, 0);
+      flipdot(COLS - 1 - x, ROWS - 1 - y, 0);
+      flipdot(COLS - 1 - x, y, 0);
+      flipdot(x, ROWS - 1 - y, 0);
+    }
+  }
+
+  delay(1000);
+
+  for (uint16_t y = 0; y < (ROWS / 2); y++) {
+    for (uint16_t x = 0; x < (COLS / 2); x++) {
+      flipdot(x, y, 1);
+      flipdot(COLS - 1 - x, ROWS - 1 - y, 1);
+      flipdot(COLS - 1 - x, y, 1);
+      flipdot(x, ROWS - 1 - y, 1);
+    }
+  }
+
+  delay(1000);
+
+  //  for (uint16_t x = 0; x < COLS; x++) {
+  //    for (uint16_t y = 0; y < ROWS; y++) {
+  //      flipdot(x, y, 1);
+  //    }
+  //  }
+  //
+  //  delay(1000);
+}
+
+void effect8() {
+  for (uint16_t x = 0; x < 32; x++) {
+    for (uint16_t y = 0; y < 16; y++) {
       flipdot(x, y, 1);
     }
   }
-  
+
   delay(1000);
+  for (uint16_t x = 0; x < 32; x++) {
+    for (uint16_t y = 0; y < 16; y++) {
+      flipdot(x, y, 0);
+    }
+  }
+
+  delay(1000);
+}
+
+void GoL() {
+  GoLrandomize();
+  for (uint8_t i = 0; i < 100; i++) {
+    GoLnext();
+    //delay(100);
+  }
+}
+void loop() {
+  yield();
+
   for (uint16_t y = 0; y < ROWS; y++) {
     for (uint16_t x = 0; x < COLS; x++) {
       flipdot(x, y, 0);
     }
   }
   
-  delay(1000);
+  GoL();
+  //effectjes();
+  //delay(1000);
+  //effect8();
 
-  GoLrandomize();
-  for (uint8_t i = 0; i < 100; i++) {
-    GoLnext();
-  }
 }
 
 
