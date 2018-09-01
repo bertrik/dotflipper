@@ -88,7 +88,7 @@ uint8_t bh, bl;
 int xegg, yegg;
 int freq, tb;
 int l, r, u, d, p;
-unsigned long time = 280;
+unsigned long mytime = 280;
 unsigned long schedule;
 int score = 0, flag = 0;
 ///END SNAKE///
@@ -540,7 +540,7 @@ void movesnake()
     }
 
     drawsnake();           //Draw the snake and egg at the new coordinates
-    schedule = millis() + time;
+    schedule = millis() + mytime;
   }
 }
 
@@ -557,7 +557,7 @@ void checkgame()       //Game over checker
 
       slength = 3;            //Resetting the values
       score = 0;
-      time = 280;
+      mytime = 280;
 
       redrawsnake();              //Restart game by drawing snake with the resetted length and score
     }
@@ -571,9 +571,9 @@ void checkegg()      //Snake meets egg
   {
     score += 1;                     //Increase length,score and increase movement speed by decreasing 'time'
     slength += 1;
-    if (time >= 20)
+    if (mytime >= 20)
     {
-      time -= 20;
+      mytime -= 20;
     }
     flipdot(xegg, yegg, 0);    //Delete the consumed egg
 
