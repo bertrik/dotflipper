@@ -67,8 +67,8 @@
 #define height 2        // in number of panels
 #define panelwidth  32  // in dots
 #define panelheight 16  // in dots
-#define COLS width*panelwidth
-#define ROWS height*panelheight
+#define COLS (width*panelwidth)
+#define ROWS (height*panelheight)
 #define pulsetime 4     // in ms, How long should the pulse last? 
 #define offtime 1       // in ms, Delay to to power down
 
@@ -79,22 +79,24 @@
 #error "Please check width and height: width and height should both be > 0 and width*height should not be >8!"
 #endif
 
-/// SNAKE
-
-boolean dl = false, dr = false, du = false, dd = false; // to check in which direction the snake is currently moving
-
-int snakex[200], snakey[200], slength, tempx = 10, tempy = 10, xx, yy;
-uint8_t bh, bl;
-int xegg, yegg;
-int freq, tb;
-int l, r, u, d, p;
-unsigned long mytime = 280;
-unsigned long schedule;
-int score = 0, flag = 0;
-///END SNAKE///
-
+// Framebuffers
 boolean current_state[COLS][ROWS];
 boolean next_state[COLS][ROWS];
+
+//SNAKE//
+boolean dl = false, dr = false, du = false, dd = false; // to check in which direction the snake is currently moving
+boolean l, r, u, d, p; // direction 
+
+int snakex[200], snakey[200], slength
+int tempx = 10, tempy = 10, xx, yy;
+int xegg, yegg;
+
+unsigned long mytime = 280;
+unsigned long schedule;
+
+int score = 0, flag = 0;
+//END SNAKE//
+
 
 void flipdot(uint16_t x, uint16_t y, bool color) {
   // This routine seems a bit convoluted, calculating the addresses for each pixel when you could make a map beforehand.
@@ -107,7 +109,6 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   // - flipping a dot on all 8 panels
   // - partial refresh (so not changing what doesnt need changing)
   // Both require an actual framebuffer, so thats next for this project.
-  //
 
   // Input sanitation. Out of range? We wrap around.
   // Sanitation is needed because this panel is headed for hacker-events...
@@ -140,10 +141,12 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   // Safety
   // If you try to use multiple rows or columns on a panel you will get magic smoke,
   // so we switch everything off on that panel for safety reasons:
+  
   // rows
   for (uint8_t address = 0x60 + (panelnumber * 2); address < 0x62 + (panelnumber * 2); address++) {
     everythingoff(address);
   }
+  
   // columns
   for (uint8_t address = 0x40 + (panelnumber * 4); address < 0x44 + (panelnumber * 4); address++) {
     everythingoff(address);
@@ -389,22 +392,18 @@ void setup() {
   resetPCA9685();
   ClearScreen();
   nchuk.begin();
-
   while (!nchuk.connect()) {
     Serial.println("Nunchuk not detected!");
     delay(1000);
+    snakesetup();
   }
-
-  snakesetup();
 }
 
 void snakesetup()
 {
 
   slength = 3;               //Start with snake length 8
-
   xegg = COLS / 2;
-
   yegg = ROWS / 2;
 
   //ClearScreen();
@@ -440,20 +439,17 @@ void ClearScreen() {
   }
 }
 
-void movesnake()
-{
+void readjoystick(){
   bool success = nchuk.update();  // Get new data from the controller
   if (!success) {
     Serial.println("Controller disconnected!");
     delay(1000);
   }
-  //nchuk.printDebug();
+  nchuk.printDebug();
 
-  p != nchuk.buttonZ();
+  p = HIGH;
   int joyY = nchuk.joyY();
   int joyX = nchuk.joyX();
-
-  // < 50 > 220
 
   if (joyX < nunchuk_lowtres) {
     l = LOW;
@@ -475,12 +471,17 @@ void movesnake()
     l = HIGH;
     r = HIGH;
   }
+  
   if (joyY > nunchuk_hitres) {
     d = HIGH;
     u = LOW;
     l = HIGH;
     r = HIGH;
   }
+}
+void movesnake()
+{
+  
 
 
 
@@ -551,7 +552,6 @@ void checkgame()       //Game over checker
   {
     if (snakex[i] == snakex[0] && snakey[i] == snakey[0])
     {
-
       //insert highscore routine
       ClearScreen();
 
@@ -641,14 +641,12 @@ void redrawsnake()   //Redraw ALL POINTS of snake and egg
   }
 }
 
-
 void loop() {
   yield();
-  movesnake();
-
-  //GoL();
-
-
+  //movesnake();
+  //ClearScreen();
+  //delay(1000);
+  GoL();
 }
 
 
