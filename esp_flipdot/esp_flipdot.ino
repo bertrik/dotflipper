@@ -64,6 +64,8 @@
 //#define TETRIS
 #define NETWORK
 
+#include "font.h"
+
 #include <Wire.h>
 //TwoWire Wire2 = TwoWire();
 
@@ -430,24 +432,36 @@ snakesetup();
 #endif
 
 #ifdef NETWORK
-  const char *ssid = "revspace-pub-2.4ghz";
-  const char *password = "";
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print(".");
-  }
-  Serial.println("");
-  Serial.println("WiFi connected"); 
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+    const char *ssid = "revspace-pub-2.4ghz";
+    const char *password = "";
+    Serial.printf("Connecting to: %s\n", ssid);
+    WiFi.begin(ssid, password);
+    uint16_t progress = 0;
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+        flipdot(progress % 32, progress / 32, 1);
+        progress++;
+    }
+    Serial.println();
+    for (int i = progress-1; i >= 0; i--) flipdot(i % 32, i / 32, 0);
+    Serial.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
 
-  udp.begin(udpPort); 
-  Serial.print("Running UDP server on port: ");
-  Serial.println(udpPort);
+    uint32_t ip = (uint32_t)(WiFi.localIP());
+    for (int octet = 0; octet < 4; octet++) {
+        uint8_t b = (ip>>(octet*8))&0xff;
+        for (int fy = 0; fy < 5; fy++) {
+            for (int fx = 0; fx < 3; fx++) {
+                for (int d = 0, e = 100; d < 3; d++, e /= 10) {
+                    uint8_t num = (b/e)%10;
+                    if (num || d) flipdot(fx + d*4, fy + octet*6, (fontDigits[num][fy]>>(2-fx))&1);
+                }
+            }
+        }
+    }
+
+    udp.begin(udpPort);
+    Serial.printf("Running UDP server on port: %d\n", udpPort);
 #endif
 }
 
