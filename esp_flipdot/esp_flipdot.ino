@@ -61,10 +61,27 @@
 //#define DEBUG
 //#define GOL
 //#define SNAKE
-//#define TETRIS
-#define NETWORK
+#define TETRIS
+//#define NETWORK
 
+// Network function example QR code
+// qrencode -t ascii -m 2 'HOLY SHIT!' | perl -lne's/(.)(.)/$1/g; $_ .= "#" x (32 - length $_); tr/ #/10/; 0 and print $_; $x .= $_ }{ $x .= "1" x 32 for $. .. 31; 0 and print $x; 1 and print pack "b*", $x'  | nc -w0 -u 10.42.45.255 1337
+
+#ifdef NETWORK
 #include "font.h"
+#endif
+
+#ifdef TETRIS
+uint8_t dot_screen[7][30];
+uint8_t led_screen[7][30];
+uint8_t dot_screen_old[7][30];
+byte ch_out[7][5];
+enum key_state {NONE,JOY_UP,JOY_DOWN,JOY_LEFT,JOY_RIGHT,JOY_PRESSED};
+enum key_state key=NONE,prev_key=NONE;
+unsigned long cur_time;
+#include "fonttetris.h"
+#include "tetris.h"
+#endif
 
 #include <Wire.h>
 //TwoWire Wire2 = TwoWire();
@@ -75,7 +92,7 @@
 #define panelheight 16  // in dots
 #define COLS (width*panelwidth)
 #define ROWS (height*panelheight)
-#define pulsetime 1     // in ms, How long should the pulse last? 
+#define pulsetime 1     // in ms, How long should the pulse last?
 #define offtime 1       // in ms, Delay to to power down
 
 #define nunchuk_lowtres 90
@@ -88,6 +105,9 @@
 // Framebuffers
 boolean current_state[COLS][ROWS];
 boolean next_state[COLS][ROWS];
+
+
+
 
 #ifdef SNAKE
 //SNAKE//
@@ -173,7 +193,7 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   i2cwrite(rowdriveraddress,    rowregister    + 0x02, 0x00);
 
   delayMicroseconds(50);
-  
+
   i2cwrite(columndriveraddress, columnregister       , 0x10);
   i2cwrite(columndriveraddress, columnregister + 0x02, 0x00);
 
@@ -182,9 +202,9 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   // And powerdown!
   i2cwrite(rowdriveraddress,    rowregister          , 0x00);
   i2cwrite(rowdriveraddress,    rowregister    + 0x02, 0x10);
-  
+
   delayMicroseconds(50);
-  
+
   i2cwrite(columndriveraddress, columnregister       , 0x00);
   i2cwrite(columndriveraddress, columnregister + 0x02, 0x10);
 
@@ -460,8 +480,11 @@ snakesetup();
         }
     }
 
+
     udp.begin(udpPort);
     Serial.printf("Running UDP server on port: %d\n", udpPort);
+    delay(5000);
+    ClearScreen();
 #endif
 }
 
@@ -527,7 +550,7 @@ void readjoystick() {
   boolean butMinus = controller.buttonMinus();
   boolean butHome = controller.buttonHome();
   boolean butPlus = controller.buttonPlus();
-  
+
 
   if (padLeft) {
     l = LOW;
@@ -758,6 +781,76 @@ void loop() {
     return;
 #endif
 
+#ifdef TETRIS
+// tetris
+randomSeed(analogRead(0));
+ClearScreen();
+game_InitGame();
+board_InitBoard();
+refresh_screen();
+key=NONE;
+while (key!=JOY_PRESSED) {
+game_DrawBoard();
+game_DrawPiece(mPosX, mPosY, mPiece, mRotation);
+refresh_screen();
+
+cur_time = millis();
+int piece_delay=200-(deleted_lines/10%10)*40;
+while ((key = read_keys())==0) {
+  if (millis()-piece_delay>cur_time) {
+      break;
+    }
+}
+if (key>0 && prev_key==key && millis()-cur_time<200) {
+  if (key==JOY_DOWN) delay(100);
+  else delay(200);
+  key=NONE;
+}
+prev_key=key;
+Serial.println(key);
+Serial.println("Lines: "+String(deleted_lines));
+
+//Serial.println(String(mPosX)+" "+String(mPosY)+" "+String(mPiece));
+  switch(key)
+  {
+  case JOY_UP:
+    if (board_IsPossibleMovement (mPosX, mPosY, mPiece, mRotation+1))
+      mRotation = (mRotation + 1) % 4;
+    break;
+  case JOY_DOWN:
+    if (board_IsPossibleMovement (mPosX, mPosY + 1, mPiece, mRotation)) mPosY++;
+      break;
+  case JOY_LEFT:
+    if (board_IsPossibleMovement (mPosX-1, mPosY, mPiece, mRotation)) mPosX--;
+    break;
+  case JOY_RIGHT:
+    if (board_IsPossibleMovement (mPosX+1, mPosY, mPiece, mRotation)) mPosX++;
+    break;
+  case JOY_PRESSED:
+    break;
+  default:
+  // move piece down
+    {
+      if (board_IsPossibleMovement (mPosX, mPosY + 1, mPiece, mRotation)) {
+            mPosY++;
+         } else {
+         board_StorePiece (mPosX, mPosY, mPiece, mRotation);
+         board_DeletePossibleLines ();
+
+         if (board_IsGameOver()) {
+           delay(5000);
+           key=JOY_PRESSED;
+           break;
+         }
+
+         game_CreateNewPiece();
+            }
+    }
+  }
+}
+Serial.println("reset");
+
+#endif
 
 #ifdef GOL
 GoL();
@@ -769,9 +862,95 @@ GoL();
   ClearScreen();
   delay(1000);
 #endif
-  
 
-  
-  ClearScreen();
-  
+  //ClearScreen();
+}
+
+key_state read_keys () {
+  enum key_state key=NONE;
+  int joy_x,joy_y,joy_sw;
+    //joy_x=analogRead(JOY_X);
+    //joy_y=analogRead(JOY_Y);
+    //joy_sw=digitalRead(JOY_SW);
+
+//    if (joy_sw==0) key=JOY_PRESSED;
+//    else if (joy_x>800) key=JOY_RIGHT;
+//    else if (joy_x<200) key=JOY_LEFT;
+//    else if (joy_y>800) key=JOY_DOWN;
+//    else if (joy_y<200) key=JOY_UP;
+  return key;
+}
+
+
+void refresh_screen() {
+for (int y=0;y<7;y++) {
+  for (int x=0;x<30;x++) {
+    if (screen[y][x]>0) dot_screen[y][29-x]=1;
+    else dot_screen[y][29-x]=0;
+}}
+update_screen(dot_screen);
+}
+
+
+void convert_to_arr(char letter) {
+  int ch;
+  for (int col=0;col<5;col++) {
+  ch=font57[letter-32][col];
+  for (int row=0;row<7;row++) {
+     byte onebit=bitRead(ch,row);
+     ch_out[row][col]=onebit;
+  }
+  }
+}
+
+
+
+
+void display_word(char str[6]) {
+int delta=0;
+for (int num=0;num<5;num++) {
+  Serial.println(str[num]);
+  convert_to_arr(str[num]);
+  for (int row=0;row<7;row++) {
+    for (int col=0;col<5;col++) {
+      dot_screen[row][delta+col]=ch_out[row][col];
+  }
+}
+delta=delta+6;
+}
+
+Serial.println(str);
+for (int row=0;row<7;row++) {
+  for (int col=0;col<30;col++) {
+    Serial.print(dot_screen[row][col]); Serial.print("");
+  }
+  Serial.println();
+}
+
+}
+
+
+void update_screen(uint8_t new_screen[][30]) {
+for (int row=0;row<7;row++) {
+  for (int col=0;col<30;col++) {
+    if (new_screen[row][col]!=dot_screen_old[row][col]) {
+      update_dot(new_screen[row][col],row,col);
+      dot_screen_old[row][col]=new_screen[row][col];
+    }
+  }
+}
+}
+
+void fill_screen(bool pattern) {
+for (int row=0;row<7;row++) {
+  for (int col=0;col<30;col++) {
+    dot_screen[row][col]=pattern;
+  }
+}
+update_screen(dot_screen);
+}
+
+
+void update_dot(bool state, byte row, byte col) {
+flipdot(row, 31-col, state);
 }
