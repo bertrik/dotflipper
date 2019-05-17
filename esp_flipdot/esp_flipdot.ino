@@ -59,6 +59,10 @@
 //   To get a yellow dot: Column driven by ULN2803 and Row driven by UDN2981
 
 //#define DEBUG
+//#define GOL
+//#define SNAKE
+//#define TETRIS
+#define NETWORK
 
 #include <Wire.h>
 //TwoWire Wire2 = TwoWire();
@@ -69,7 +73,7 @@
 #define panelheight 16  // in dots
 #define COLS (width*panelwidth)
 #define ROWS (height*panelheight)
-#define pulsetime 4     // in ms, How long should the pulse last? 
+#define pulsetime 1     // in ms, How long should the pulse last? 
 #define offtime 1       // in ms, Delay to to power down
 
 #define nunchuk_lowtres 90
@@ -83,11 +87,12 @@
 boolean current_state[COLS][ROWS];
 boolean next_state[COLS][ROWS];
 
+#ifdef SNAKE
 //SNAKE//
 boolean dl = false, dr = false, du = false, dd = false; // to check in which direction the snake is currently moving
-boolean l, r, u, d, p; // direction 
+boolean l, r, u, d, p = HIGH; // direction
 
-int snakex[200], snakey[200], slength
+int snakex[200], snakey[200], slength;
 int tempx = 10, tempy = 10, xx, yy;
 int xegg, yegg;
 
@@ -96,7 +101,15 @@ unsigned long schedule;
 
 int score = 0, flag = 0;
 //END SNAKE//
+#endif
 
+#ifdef NETWORK
+#include <ESP8266WiFi.h>
+#include <WiFiUdp.h>
+
+WiFiUDP udp;
+uint16_t udpPort = 1337;
+#endif
 
 void flipdot(uint16_t x, uint16_t y, bool color) {
   // This routine seems a bit convoluted, calculating the addresses for each pixel when you could make a map beforehand.
@@ -141,12 +154,12 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   // Safety
   // If you try to use multiple rows or columns on a panel you will get magic smoke,
   // so we switch everything off on that panel for safety reasons:
-  
+
   // rows
   for (uint8_t address = 0x60 + (panelnumber * 2); address < 0x62 + (panelnumber * 2); address++) {
     everythingoff(address);
   }
-  
+
   // columns
   for (uint8_t address = 0x40 + (panelnumber * 4); address < 0x44 + (panelnumber * 4); address++) {
     everythingoff(address);
@@ -157,15 +170,19 @@ void flipdot(uint16_t x, uint16_t y, bool color) {
   i2cwrite(rowdriveraddress,    rowregister          , 0x10);
   i2cwrite(rowdriveraddress,    rowregister    + 0x02, 0x00);
 
+  delayMicroseconds(50);
+  
   i2cwrite(columndriveraddress, columnregister       , 0x10);
   i2cwrite(columndriveraddress, columnregister + 0x02, 0x00);
 
-  delay (pulsetime);
+  delay(pulsetime);
 
   // And powerdown!
   i2cwrite(rowdriveraddress,    rowregister          , 0x00);
   i2cwrite(rowdriveraddress,    rowregister    + 0x02, 0x10);
-
+  
+  delayMicroseconds(50);
+  
   i2cwrite(columndriveraddress, columnregister       , 0x00);
   i2cwrite(columndriveraddress, columnregister + 0x02, 0x10);
 
@@ -214,6 +231,22 @@ void everythingoff(uint8_t address) {
   i2cwrite(address, 0xFD, 0x10);
 }
 
+void ClearScreen() {
+  for (uint16_t y = 0; y < ROWS; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, y, 0);
+    }
+  }
+}
+
+void YellowScreen(){
+    for (uint16_t y = 0; y < ROWS; y++) {
+    for (uint16_t x = 0; x < COLS; x++) {
+      flipdot(x, y, 1);
+    }
+  }
+}
+
 void i2cscanner() {
   byte error, address;
   int nDevices;
@@ -257,7 +290,7 @@ void infiniteloop() {
   }
 }
 
-
+#ifdef GOL
 void GoLnext() {
   memset(next_state, 0, sizeof(next_state));
   int x;
@@ -353,14 +386,13 @@ void GoLrandomize() {
     }
   }
 }
+#endif
 
 
-#include <NintendoExtensionCtrl.h>
-Nunchuk nchuk;
+
 
 
 void setup() {
-
 #if defined(__AVR__)
   Wire.begin(); // Nano
   Wire.setClock(400000); // Nano + ESP8266
@@ -390,18 +422,47 @@ void setup() {
   Serial.println("Flipdot getting ready to go!");
 
   resetPCA9685();
+  YellowScreen();
   ClearScreen();
-  nchuk.begin();
-  while (!nchuk.connect()) {
-    Serial.println("Nunchuk not detected!");
-    delay(1000);
-    snakesetup();
+
+#ifdef SNAKE
+snakesetup();
+#endif
+
+#ifdef NETWORK
+  const char *ssid = "revspace-pub-2.4ghz";
+  const char *password = "";
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
   }
+  Serial.println("");
+  Serial.println("WiFi connected"); 
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  udp.begin(udpPort); 
+  Serial.print("Running UDP server on port: ");
+  Serial.println(udpPort);
+#endif
 }
+
+#ifdef SNAKE
+#include <NintendoExtensionCtrl.h>
+ClassicController controller;
 
 void snakesetup()
 {
+  controller.begin();
+  while (!controller.connect()) {
+    Serial.println("Controller not detected!");
+    delay(1000);
 
+  }
   slength = 3;               //Start with snake length 8
   xegg = COLS / 2;
   yegg = ROWS / 2;
@@ -422,69 +483,80 @@ void snakesetup()
   dr = true;  //Going to move right initially
   p = HIGH;
 }
+#endif
 
+#ifdef GOL
 void GoL() {
   GoLrandomize();
   for (uint8_t i = 0; i < 100; i++) {
+    yield();
     GoLnext();
-    //delay(100);
   }
 }
+#endif
 
-void ClearScreen() {
-  for (uint16_t y = 0; y < ROWS; y++) {
-    for (uint16_t x = 0; x < COLS; x++) {
-      flipdot(x, y, 0);
-    }
-  }
-}
 
-void readjoystick(){
-  bool success = nchuk.update();  // Get new data from the controller
+
+#ifdef SNAKE
+void readjoystick() {
+  bool success = controller.update();  // Get new data from the controller
   if (!success) {
     Serial.println("Controller disconnected!");
     delay(1000);
   }
-  nchuk.printDebug();
+  controller.printDebug();
 
-  p = HIGH;
-  int joyY = nchuk.joyY();
-  int joyX = nchuk.joyX();
+  boolean padUp = controller.dpadUp();
+  boolean padDown = controller.dpadDown();
+  boolean padLeft = controller.dpadLeft();
+  boolean padRight = controller.dpadRight();
+  boolean butMinus = controller.buttonMinus();
+  boolean butHome = controller.buttonHome();
+  boolean butPlus = controller.buttonPlus();
+  
 
-  if (joyX < nunchuk_lowtres) {
+  if (padLeft) {
     l = LOW;
     r = HIGH;
     d = HIGH;
     u = HIGH;
   }
 
-  if (joyX > nunchuk_hitres) {
+  if (padRight) {
     l = HIGH;
     r = LOW;
     d = HIGH;
     u = HIGH;
   }
 
-  if (joyY < nunchuk_lowtres) {
+  if (padDown) {
     d = LOW;
     u = HIGH;
     l = HIGH;
     r = HIGH;
   }
-  
-  if (joyY > nunchuk_hitres) {
+
+  if (padUp) {
     d = HIGH;
     u = LOW;
     l = HIGH;
     r = HIGH;
   }
+
+  if (butPlus) {
+    p = LOW;
+    d = HIGH;
+    u = HIGH;
+    l = HIGH;
+    r = HIGH;
+  } else {
+    p = HIGH;
+  }
 }
+
 void movesnake()
 {
-  
-
-
-
+  readjoystick();
   if (flag == 0)
   {
     snakedirect();    //When key is pressed,this will change the coordinates accordingly and set flag to 1
@@ -553,6 +625,7 @@ void checkgame()       //Game over checker
     if (snakex[i] == snakex[0] && snakey[i] == snakey[0])
     {
       //insert highscore routine
+      YellowScreen();
       ClearScreen();
 
       slength = 3;            //Resetting the values
@@ -640,13 +713,51 @@ void redrawsnake()   //Redraw ALL POINTS of snake and egg
     flipdot(snakex[i], snakey[i], 1);
   }
 }
+#endif
 
 void loop() {
   yield();
-  //movesnake();
-  //ClearScreen();
-  //delay(1000);
-  GoL();
+
+#ifdef NETWORK
+  static uint8_t prevFramebuffer[ROWS*COLS/8] = { 0 };
+  static uint8_t framebuffer[ROWS*COLS/8] = { 0 };
+
+  int c = udp.parsePacket();
+  if (c) {
+      Serial.printf("Received %d bytes from %s, port %d\n", c, udp.remoteIP().toString().c_str(), udp.remotePort());
+      udp.read(framebuffer, sizeof(framebuffer));
+  }
+
+  for (uint16_t y = 0; y < ROWS; y++) {
+      for (uint16_t x = 0; x < COLS; x++) {
+          uint16_t i = y*COLS + x;
+
+          uint8_t a = (framebuffer[i>>3]>>(i&7))&1,
+                  b = (prevFramebuffer[i>>3]>>(i&7))&1;
+          if (a ^ b) {
+              flipdot(x, y, a);
+          }
+      }
+  }
+
+    memcpy(prevFramebuffer, framebuffer, sizeof(framebuffer));
+    return;
+#endif
+
+
+#ifdef GOL
+GoL();
+#endif
+
+#ifdef SNAKE
+  movesnake();
+  YellowScreen();
+  ClearScreen();
+  delay(1000);
+#endif
+  
+
+  
+  ClearScreen();
+  
 }
-
-
