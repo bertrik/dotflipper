@@ -5,7 +5,65 @@
 
 #include "tetris.h"
 #include "pieces.h"
+#include "fonttetris.h"
 
+
+void refresh_screen() {
+  for (int y = 0; y < BOARD_WIDTH; y++) {
+    for (int x = 0; x < BOARD_HEIGHT; x++) {
+      if (screen[y][x] > 0) dot_screen[y][BOARD_HEIGHT - 1 - x] = 1;
+      else dot_screen[y][BOARD_HEIGHT - 1 - x] = 0;
+    }
+  }
+  update_screen(dot_screen);
+}
+
+void convert_to_arr(char letter) {
+  int ch;
+  for (int col = 0; col < 5; col++) {
+    ch = font57[letter - 32][col];
+    for (int row = 0; row < BOARD_WIDTH; row++) {
+      byte onebit = bitRead(ch, row);
+      ch_out[row][col] = onebit;
+    }
+  }
+}
+
+void display_word(char str[6]) {
+  int delta = 0;
+  for (int num = 0; num < 5; num++) {
+    //Serial.println(str[num]);
+    convert_to_arr(str[num]);
+    for (int row = 0; row < BOARD_WIDTH; row++) {
+      for (int col = 0; col < 5; col++) {
+        dot_screen[row][delta + col] = ch_out[row][col];
+      }
+    }
+    delta = delta + 6;
+  }
+}
+
+
+void update_screen(uint8_t new_screen[][BOARD_HEIGHT]) {
+  for (int row = 0; row < BOARD_WIDTH; row++) {
+    for (int col = 0; col < BOARD_HEIGHT; col++) {
+      if (new_screen[row][col] != dot_screen_old[row][col]) {
+        flipdot(row, 31 - col, new_screen[row][col]);
+        dot_screen_old[row][col] = new_screen[row][col];
+
+      }
+    }
+  }
+}
+
+void fill_screen(bool pattern) {
+  for (int row = 0; row < BOARD_WIDTH; row++) {
+    for (int col = 0; col < BOARD_HEIGHT; col++) {
+      dot_screen[row][col] = pattern;
+    }
+  }
+  update_screen(dot_screen);
+}
 
 int piece_GetBlockType (int pPiece, int pRotation, int pX, int pY) {
     return pPieces [pPiece][pRotation][pX][pY];

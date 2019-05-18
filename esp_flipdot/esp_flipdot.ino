@@ -72,15 +72,14 @@
 #endif
 
 #ifdef TETRIS
-uint8_t dot_screen[7][30];
-uint8_t led_screen[7][30];
-uint8_t dot_screen_old[7][30];
-byte ch_out[7][5];
-enum key_state {NONE,JOY_UP,JOY_DOWN,JOY_LEFT,JOY_RIGHT,JOY_PRESSED};
-enum key_state key=NONE,prev_key=NONE;
-unsigned long cur_time;
-#include "fonttetris.h"
+
 #include "tetris.h"
+
+
+enum key_state {NONE, JOY_UP, JOY_DOWN, JOY_LEFT, JOY_RIGHT, JOY_PRESSED};
+enum key_state key = NONE, prev_key = NONE;
+unsigned long cur_time;
+
 #endif
 
 #include <Wire.h>
@@ -261,8 +260,8 @@ void ClearScreen() {
   }
 }
 
-void YellowScreen(){
-    for (uint16_t y = 0; y < ROWS; y++) {
+void YellowScreen() {
+  for (uint16_t y = 0; y < ROWS; y++) {
     for (uint16_t x = 0; x < COLS; x++) {
       flipdot(x, y, 1);
     }
@@ -448,43 +447,43 @@ void setup() {
   ClearScreen();
 
 #ifdef SNAKE
-snakesetup();
+  snakesetup();
 #endif
 
 #ifdef NETWORK
-    const char *ssid = "revspace-pub-2.4ghz";
-    const char *password = "";
-    Serial.printf("Connecting to: %s\n", ssid);
-    WiFi.begin(ssid, password);
-    uint16_t progress = 0;
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-        flipdot(progress % 32, progress / 32, 1);
-        progress++;
-    }
-    Serial.println();
-    for (int i = progress-1; i >= 0; i--) flipdot(i % 32, i / 32, 0);
-    Serial.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
+  const char *ssid = "revspace-pub-2.4ghz";
+  const char *password = "";
+  Serial.printf("Connecting to: %s\n", ssid);
+  WiFi.begin(ssid, password);
+  uint16_t progress = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    flipdot(progress % 32, progress / 32, 1);
+    progress++;
+  }
+  Serial.println();
+  for (int i = progress - 1; i >= 0; i--) flipdot(i % 32, i / 32, 0);
+  Serial.printf("WiFi connected, IP address: %s\n", WiFi.localIP().toString().c_str());
 
-    uint32_t ip = (uint32_t)(WiFi.localIP());
-    for (int octet = 0; octet < 4; octet++) {
-        uint8_t b = (ip>>(octet*8))&0xff;
-        for (int fy = 0; fy < 5; fy++) {
-            for (int fx = 0; fx < 3; fx++) {
-                for (int d = 0, e = 100; d < 3; d++, e /= 10) {
-                    uint8_t num = (b/e)%10;
-                    if (num || d) flipdot(fx + d*4, fy + octet*6, (fontDigits[num][fy]>>(2-fx))&1);
-                }
-            }
+  uint32_t ip = (uint32_t)(WiFi.localIP());
+  for (int octet = 0; octet < 4; octet++) {
+    uint8_t b = (ip >> (octet * 8)) & 0xff;
+    for (int fy = 0; fy < 5; fy++) {
+      for (int fx = 0; fx < 3; fx++) {
+        for (int d = 0, e = 100; d < 3; d++, e /= 10) {
+          uint8_t num = (b / e) % 10;
+          if (num || d) flipdot(fx + d * 4, fy + octet * 6, (fontDigits[num][fy] >> (2 - fx)) & 1);
         }
+      }
     }
+  }
 
 
-    udp.begin(udpPort);
-    Serial.printf("Running UDP server on port: %d\n", udpPort);
-    delay(5000);
-    ClearScreen();
+  udp.begin(udpPort);
+  Serial.printf("Running UDP server on port: %d\n", udpPort);
+  delay(5000);
+  ClearScreen();
 #endif
 }
 
@@ -541,7 +540,7 @@ void readjoystick() {
     Serial.println("Controller disconnected!");
     delay(1000);
   }
-  controller.printDebug();
+  //controller.printDebug();
 
   boolean padUp = controller.dpadUp();
   boolean padDown = controller.dpadDown();
@@ -752,205 +751,162 @@ void redrawsnake()   //Redraw ALL POINTS of snake and egg
 }
 #endif
 
+#ifdef TETRIS
+#include <NintendoExtensionCtrl.h>
+ClassicController controller;
+
+void tetrissetup()
+{
+  controller.begin();
+  while (!controller.connect()) {
+    Serial.println("Controller not detected!");
+    delay(1000);
+
+  }
+}
+#endif
+
+
+
 void loop() {
   yield();
 
 #ifdef NETWORK
-  static uint8_t prevFramebuffer[ROWS*COLS/8] = { 0 };
-  static uint8_t framebuffer[ROWS*COLS/8] = { 0 };
+  static uint8_t prevFramebuffer[ROWS * COLS / 8] = { 0 };
+  static uint8_t framebuffer[ROWS * COLS / 8] = { 0 };
 
   int c = udp.parsePacket();
   if (c) {
-      Serial.printf("Received %d bytes from %s, port %d\n", c, udp.remoteIP().toString().c_str(), udp.remotePort());
-      udp.read(framebuffer, sizeof(framebuffer));
+    Serial.printf("Received %d bytes from %s, port %d\n", c, udp.remoteIP().toString().c_str(), udp.remotePort());
+    udp.read(framebuffer, sizeof(framebuffer));
   }
 
   for (uint16_t y = 0; y < ROWS; y++) {
-      for (uint16_t x = 0; x < COLS; x++) {
-          uint16_t i = y*COLS + x;
+    for (uint16_t x = 0; x < COLS; x++) {
+      uint16_t i = y * COLS + x;
 
-          uint8_t a = (framebuffer[i>>3]>>(i&7))&1,
-                  b = (prevFramebuffer[i>>3]>>(i&7))&1;
-          if (a ^ b) {
-              flipdot(x, y, a);
-          }
+      uint8_t a = (framebuffer[i >> 3] >> (i & 7)) & 1,
+              b = (prevFramebuffer[i >> 3] >> (i & 7)) & 1;
+      if (a ^ b) {
+        flipdot(x, y, a);
       }
+    }
   }
 
-    memcpy(prevFramebuffer, framebuffer, sizeof(framebuffer));
-    return;
+  memcpy(prevFramebuffer, framebuffer, sizeof(framebuffer));
+  return;
 #endif
 
 #ifdef TETRIS
-// tetris
-randomSeed(analogRead(0));
-ClearScreen();
-game_InitGame();
-board_InitBoard();
-refresh_screen();
-key=NONE;
-while (key!=JOY_PRESSED) {
-game_DrawBoard();
-game_DrawPiece(mPosX, mPosY, mPiece, mRotation);
-refresh_screen();
+  // tetris
+  randomSeed(analogRead(0));
+  ClearScreen();
+  tetrissetup();
+  game_InitGame();
+  board_InitBoard();
+  refresh_screen();
+  key = NONE;
+  while (key != JOY_PRESSED) {
+    game_DrawBoard();
+    game_DrawPiece(mPosX, mPosY, mPiece, mRotation);
+    refresh_screen();
 
-cur_time = millis();
-int piece_delay=200-(deleted_lines/10%10)*40;
-while ((key = read_keys())==0) {
-  if (millis()-piece_delay>cur_time) {
-      break;
+    cur_time = millis();
+    int piece_delay = 200 - (deleted_lines / 10 % 10) * 40;
+    while ((key = read_keys()) == 0) {
+      if (millis() - piece_delay > cur_time) {
+        break;
+      }
     }
-}
-if (key>0 && prev_key==key && millis()-cur_time<200) {
-  if (key==JOY_DOWN) delay(100);
-  else delay(200);
-  key=NONE;
-}
-prev_key=key;
-Serial.println(key);
-Serial.println("Lines: "+String(deleted_lines));
+    if (key > 0 && prev_key == key && millis() - cur_time < 200) {
+      if (key == JOY_DOWN) delay(100);
+      else delay(200);
+      key = NONE;
+    }
+    prev_key = key;
+    Serial.println(key);
+    Serial.println("Lines: " + String(deleted_lines));
 
-//Serial.println(String(mPosX)+" "+String(mPosY)+" "+String(mPiece));
-  switch(key)
-  {
-  case JOY_UP:
-    if (board_IsPossibleMovement (mPosX, mPosY, mPiece, mRotation+1))
-      mRotation = (mRotation + 1) % 4;
-    break;
-  case JOY_DOWN:
-    if (board_IsPossibleMovement (mPosX, mPosY + 1, mPiece, mRotation)) mPosY++;
-      break;
-  case JOY_LEFT:
-    if (board_IsPossibleMovement (mPosX-1, mPosY, mPiece, mRotation)) mPosX--;
-    break;
-  case JOY_RIGHT:
-    if (board_IsPossibleMovement (mPosX+1, mPosY, mPiece, mRotation)) mPosX++;
-    break;
-  case JOY_PRESSED:
-    break;
-  default:
-  // move piece down
+    //Serial.println(String(mPosX)+" "+String(mPosY)+" "+String(mPiece));
+    switch (key)
     {
-      if (board_IsPossibleMovement (mPosX, mPosY + 1, mPiece, mRotation)) {
+      case JOY_UP:
+        if (board_IsPossibleMovement (mPosX, mPosY, mPiece, mRotation + 1))
+          mRotation = (mRotation + 1) % 4;
+        break;
+      case JOY_DOWN:
+        if (board_IsPossibleMovement (mPosX, mPosY + 1, mPiece, mRotation)) mPosY++;
+        break;
+      case JOY_LEFT:
+        if (board_IsPossibleMovement (mPosX - 1, mPosY, mPiece, mRotation)) mPosX--;
+        break;
+      case JOY_RIGHT:
+        if (board_IsPossibleMovement (mPosX + 1, mPosY, mPiece, mRotation)) mPosX++;
+        break;
+      case JOY_PRESSED:
+        break;
+      default:
+        // move piece down
+        {
+          if (board_IsPossibleMovement (mPosX, mPosY + 1, mPiece, mRotation)) {
             mPosY++;
-         } else {
-         board_StorePiece (mPosX, mPosY, mPiece, mRotation);
-         board_DeletePossibleLines ();
+          } else {
+            board_StorePiece (mPosX, mPosY, mPiece, mRotation);
+            board_DeletePossibleLines ();
 
-         if (board_IsGameOver()) {
-           delay(5000);
-           key=JOY_PRESSED;
-           break;
-         }
-
-         game_CreateNewPiece();
+            if (board_IsGameOver()) {
+              delay(5000);
+              key = JOY_PRESSED;
+              break;
             }
+
+            game_CreateNewPiece();
+          }
+        }
     }
   }
-}
-Serial.println("reset");
+  Serial.println("reset");
 
 #endif
 
 #ifdef GOL
-GoL();
+  GoL();
 #endif
 
 #ifdef SNAKE
   movesnake();
-  YellowScreen();
-  ClearScreen();
-  delay(1000);
+  //YellowScreen();
+  //ClearScreen();
+  //delay(1000);
 #endif
 
   //ClearScreen();
 }
 
+#ifdef TETRIS
 key_state read_keys () {
-  enum key_state key=NONE;
-  int joy_x,joy_y,joy_sw;
-    //joy_x=analogRead(JOY_X);
-    //joy_y=analogRead(JOY_Y);
-    //joy_sw=digitalRead(JOY_SW);
+  enum key_state key = NONE;
+  int joy_x, joy_y, joy_sw;
+  bool success = controller.update();  // Get new data from the controller
+  if (!success) {
+    Serial.println("Controller disconnected!");
+    delay(1000);
+  }
+  boolean padUp = controller.dpadUp();
+  boolean padDown = controller.dpadDown();
+  boolean padLeft = controller.dpadLeft();
+  boolean padRight = controller.dpadRight();
+  boolean butMinus = controller.buttonMinus();
+  boolean butHome = controller.buttonHome();
+  boolean butPlus = controller.buttonPlus();
 
-//    if (joy_sw==0) key=JOY_PRESSED;
-//    else if (joy_x>800) key=JOY_RIGHT;
-//    else if (joy_x<200) key=JOY_LEFT;
-//    else if (joy_y>800) key=JOY_DOWN;
-//    else if (joy_y<200) key=JOY_UP;
+
+  if (padLeft) key = JOY_LEFT;
+  if (padRight) key = JOY_RIGHT;
+  if (padDown) key = JOY_DOWN;
+  if (padUp) key = JOY_UP;
+  if (butPlus) key = JOY_PRESSED;
   return key;
-}
-
-
-void refresh_screen() {
-for (int y=0;y<7;y++) {
-  for (int x=0;x<30;x++) {
-    if (screen[y][x]>0) dot_screen[y][29-x]=1;
-    else dot_screen[y][29-x]=0;
-}}
-update_screen(dot_screen);
-}
-
-
-void convert_to_arr(char letter) {
-  int ch;
-  for (int col=0;col<5;col++) {
-  ch=font57[letter-32][col];
-  for (int row=0;row<7;row++) {
-     byte onebit=bitRead(ch,row);
-     ch_out[row][col]=onebit;
-  }
-  }
-}
-
-
-
-
-void display_word(char str[6]) {
-int delta=0;
-for (int num=0;num<5;num++) {
-  Serial.println(str[num]);
-  convert_to_arr(str[num]);
-  for (int row=0;row<7;row++) {
-    for (int col=0;col<5;col++) {
-      dot_screen[row][delta+col]=ch_out[row][col];
-  }
-}
-delta=delta+6;
-}
-
-Serial.println(str);
-for (int row=0;row<7;row++) {
-  for (int col=0;col<30;col++) {
-    Serial.print(dot_screen[row][col]); Serial.print("");
-  }
-  Serial.println();
-}
 
 }
-
-
-void update_screen(uint8_t new_screen[][30]) {
-for (int row=0;row<7;row++) {
-  for (int col=0;col<30;col++) {
-    if (new_screen[row][col]!=dot_screen_old[row][col]) {
-      update_dot(new_screen[row][col],row,col);
-      dot_screen_old[row][col]=new_screen[row][col];
-    }
-  }
-}
-}
-
-void fill_screen(bool pattern) {
-for (int row=0;row<7;row++) {
-  for (int col=0;col<30;col++) {
-    dot_screen[row][col]=pattern;
-  }
-}
-update_screen(dot_screen);
-}
-
-
-void update_dot(bool state, byte row, byte col) {
-flipdot(row, 31-col, state);
-}
+#endif
